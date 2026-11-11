@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Proposal Hub
+
+create me a  simple landing for proposal management with a small analytics 
+
+I have attached the file for the fields and for the backend it will be sa FASTAPI backend create me a login page for google sign-in but don't link it to google just yet just make it a button then inside a dashboard where they could submit their proposal a simple user management and analytics from the second tab of the excel file where they could sort out the data by date or any fields we have on the file
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/0a3ac4b3-ffbe-46e5-a22c-82cb5deb1ed4).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
