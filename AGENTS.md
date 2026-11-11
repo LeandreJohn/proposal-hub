@@ -28,3 +28,8 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Architecture
+- Backend is an external FastAPI service; all data access goes through `src/lib/api.ts` (uses `VITE_API_BASE_URL`, falls back to localStorage demo data). Expected endpoints: GET/POST /proposals, PATCH /proposals/{id}, GET/POST /users, PATCH/DELETE /users/{id}.
+- Analytics math lives in pure functions in `src/lib/analytics.ts` so it is testable.
+- Google sign-in is a placeholder demo session until real OAuth is wired.
