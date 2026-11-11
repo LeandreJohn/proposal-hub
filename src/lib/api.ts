@@ -1,7 +1,7 @@
 import type { AppUser, Proposal } from "./types";
 
 // Set VITE_API_BASE_URL to your FastAPI server (e.g. http://localhost:8000) to use it instead of local demo data.
-const BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const BASE = import.meta.env['VITE_API_BASE_URL'] as string | undefined;
 
 const SEED_PROPOSALS: Proposal[] = [
   { id: 1, proposal: "Reduce weekly check-in frequency for tenured Cyberbackers (example)", owner: "Jane Dela Cruz", status: "Approved", decisionDate: "2026-11-01", submittedBy: "Headbacker team (survey feedback)", dateSubmitted: "2026-10-20", rationale: "Approved in principle; rollout criteria being defined with Ops." },

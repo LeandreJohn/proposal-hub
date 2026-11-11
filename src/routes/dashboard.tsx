@@ -84,7 +84,7 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
   const [editing, setEditing] = useState<Proposal | null>(null);
 
   const submit = async () => {
-    if (!form.proposal.trim() || !form.owner || !form.submittedBy.trim()) return toast.error("Please fill in all fields");
+    if (!form.proposal.trim() || !form.owner || !form.submittedBy.trim()) { toast.error("Please fill in all fields"); return; }
     await api.createProposal({ ...form, status: "Submitted", decisionDate: null, rationale: "" });
     toast.success("Proposal submitted");
     setOpen(false); setForm({ proposal: "", owner: "", submittedBy: "", dateSubmitted: today() }); onChange();
@@ -266,7 +266,7 @@ function AnalyticsTab({ proposals }: { proposals: Proposal[] }) {
 function UsersTab({ users, onChange }: { users: AppUser[]; onChange: () => void }) {
   const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [role, setRole] = useState<AppUser["role"]>("Member");
   const add = async () => {
-    if (!name.trim() || !/^\S+@\S+\.\S+$/.test(email)) return toast.error("Enter a name and valid email");
+    if (!name.trim() || !/^\S+@\S+\.\S+$/.test(email)) { toast.error("Enter a name and valid email"); return; }
     await api.createUser({ name: name.trim(), email: email.trim(), role });
     setName(""); setEmail(""); toast.success("User added"); onChange();
   };
