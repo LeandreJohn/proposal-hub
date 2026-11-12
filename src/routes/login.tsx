@@ -5,9 +5,9 @@ import { session } from "@/lib/api";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in — Headbacker Proposals" },
+      { title: "Sign in — Cyberbacker HB Proposal Hub" },
       { name: "description", content: "Sign in to submit and track Headbacker proposals." },
-      { property: "og:title", content: "Sign in — Headbacker Proposals" },
+      { property: "og:title", content: "Sign in — Cyberbacker HB Proposal Hub" },
       { property: "og:description", content: "Sign in to submit and track proposals." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

@@ -9,9 +9,9 @@ import { summarize } from "@/lib/analytics";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Headbacker Proposals — Track every proposal to a decision" },
+      { title: "Cyberbacker HB Proposal Hub — Track every proposal to a decision" },
       { name: "description", content: "Submit, track and analyze Headbacker proposals from idea to decision." },
-      { property: "og:title", content: "Headbacker Proposals" },
+      { property: "og:title", content: "Cyberbacker HB Proposal Hub" },
       { property: "og:description", content: "Submit, track and analyze proposals from idea to decision." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -69,7 +69,7 @@ function Index() {
           ))}
         </section>
       </main>
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">© 2026 Headbacker</footer>
+      <footer className="border-t py-8 text-center text-sm text-muted-foreground">© 2026 Cyberbacker</footer>
     </div>
   );
 }

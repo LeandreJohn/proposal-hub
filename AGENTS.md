@@ -33,3 +33,5 @@ use the editor.
 - Backend is an external FastAPI service; all data access goes through `src/lib/api.ts` (uses `VITE_API_BASE_URL`, falls back to localStorage demo data). Expected endpoints: GET/POST /proposals, PATCH /proposals/{id}, GET/POST /users, PATCH/DELETE /users/{id}.
 - Analytics math lives in pure functions in `src/lib/analytics.ts` so it is testable.
 - Google sign-in is a placeholder demo session until real OAuth is wired.
+
+- Azure Static Web Apps deploys a static SPA build (`AZURE_SWA=1` → TanStack Start SPA mode, output `.output/public`); keep pages client-renderable because Azure serves no server functions.
