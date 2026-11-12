@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api, session } from "@/lib/api";
 import { byOwner, daysToDecision, isOpen, summarize } from "@/lib/analytics";
 import { STATUSES, type AppUser, type Proposal, type Status } from "@/lib/types";
-import { getDashboardTabs, OTHER_OWNER_VALUE, paginateItems, PROPOSAL_PAGE_SIZE, resolveProposalOwner, sortProposalRows, type ProposalSortKey } from "@/lib/proposal-management";
+import { getDashboardTabs, hasProposalPagination, OTHER_OWNER_VALUE, paginateItems, PROPOSAL_PAGE_SIZE, resolveProposalOwner, sortProposalRows, type ProposalSortKey } from "@/lib/proposal-management";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -183,7 +183,7 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
           </TableBody>
         </Table>
       </div>
-      {sorted.length > PROPOSAL_PAGE_SIZE && (
+      {hasProposalPagination(sorted.length) && (
         <nav aria-label="Proposal pages" className="flex items-center justify-end gap-3">
           <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
           <Button variant="outline" size="icon" aria-label="Previous page" title="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
