@@ -10,7 +10,7 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // AZURE_SWA=1 builds a static single-page app (index.html shell) for Azure Static Web Apps.
-const azure = process.env.AZURE_SWA === "1";
+const azure = process.env['AZURE_SWA'] === "1";
 
 export default defineConfig({
   tanstackStart: {
