@@ -21,9 +21,9 @@ export const Route = createFileRoute("/dashboard")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Dashboard — Headbacker Proposals" },
+      { title: "Dashboard — Cyberbacker HB Proposal Hub" },
       { name: "description", content: "Submit proposals, manage users and view proposal analytics." },
-      { property: "og:title", content: "Dashboard — Headbacker Proposals" },
+      { property: "og:title", content: "Dashboard — Cyberbacker HB Proposal Hub" },
       { property: "og:description", content: "Submit proposals, manage users and view analytics." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
