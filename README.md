@@ -24,3 +24,10 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Deploying to Azure Static Web Apps
+1. Create a Static Web App in Azure (build preset: Custom) and add its deployment token as the GitHub secret `AZURE_STATIC_WEB_APPS_API_TOKEN`.
+2. Add `VITE_API_BASE_URL` (your FastAPI URL) as a GitHub secret.
+3. Push to `main`; `.github/workflows/azure-static-web-apps.yml` runs `bun run build:azure` and uploads `.output/public`.
+4. `public/staticwebapp.config.json` routes all page refreshes (e.g. /dashboard) to `index.html`.
+5. Allow the Static Web App's domain in FastAPI `CORSMiddleware`.

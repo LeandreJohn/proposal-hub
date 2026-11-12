@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUpDown, LogOut, Plus, Trash2 } from "lucide-react";
+import { ArrowUpDown, LogOut, Pencil, Plus, Trash2 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,12 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ proposal: "", owner: "", submittedBy: "", dateSubmitted: today() });
   const [editing, setEditing] = useState<Proposal | null>(null);
+  const [fFrom, setFFrom] = useState(""); const [fTo, setFTo] = useState("");
+  const [fOwner, setFOwner] = useState(ALL); const [fStatus, setFStatus] = useState(ALL);
+  const owners = [...new Set(proposals.map((p) => p.owner))];
+  const shown = proposals.filter((p) =>
+    (!fFrom || p.dateSubmitted >= fFrom) && (!fTo || p.dateSubmitted <= fTo) &&
+    (fOwner === ALL || p.owner === fOwner) && (fStatus === ALL || p.status === fStatus));
 
   const submit = async () => {
     if (!form.proposal.trim() || !form.owner || !form.submittedBy.trim()) { toast.error("Please fill in all fields"); return; }
@@ -91,6 +97,7 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
   };
   const saveEdit = async () => {
     if (!editing) return;
+    if (!editing.proposal.trim() || !editing.submittedBy.trim()) { toast.error("Proposal and submitted by are required"); return; }
     await api.updateProposal(editing.id, editing);
     toast.success("Proposal updated"); setEditing(null); onChange();
   };
@@ -98,7 +105,7 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between">
-        <div><h2 className="text-2xl font-semibold">Proposal log</h2><p className="text-sm text-muted-foreground">Click a row to update its status or decision.</p></div>
+        <div><h2 className="text-2xl font-semibold">Proposal log</h2><p className="text-sm text-muted-foreground">Use the pencil to edit a proposal.</p></div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Submit proposal</Button></DialogTrigger>
           <DialogContent>
@@ -118,16 +125,29 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
           </DialogContent>
         </Dialog>
       </div>
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+        <div><Label>Submitted from</Label><Input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} /></div>
+        <div><Label>Submitted to</Label><Input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} /></div>
+        <div className="w-48"><Label>Owner</Label>
+          <Select value={fOwner} onValueChange={setFOwner}><SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value={ALL}>All</SelectItem>{owners.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+        <div className="w-48"><Label>Status</Label>
+          <Select value={fStatus} onValueChange={setFStatus}><SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value={ALL}>All</SelectItem>{STATUSES.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+        <Button variant="outline" onClick={() => { setFFrom(""); setFTo(""); setFOwner(ALL); setFStatus(ALL); }}>Clear</Button>
+      </div>
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader><TableRow>
-            <TableHead>#</TableHead><TableHead>Proposal</TableHead><TableHead>Owner</TableHead><TableHead>Status</TableHead>
+            <TableHead className="w-10" /><TableHead>#</TableHead><TableHead>Proposal</TableHead><TableHead>Owner</TableHead><TableHead>Status</TableHead>
             <TableHead>Decision date</TableHead><TableHead>Submitted by</TableHead><TableHead>Date submitted</TableHead>
             <TableHead>Decision & rationale</TableHead><TableHead>Days</TableHead>
           </TableRow></TableHeader>
           <TableBody>
-            {proposals.map((p) => (
-              <TableRow key={p.id} className="cursor-pointer" onClick={() => setEditing({ ...p })}>
+            {shown.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
+            {shown.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell><Button variant="ghost" size="icon" aria-label={`Edit proposal ${p.id}`} onClick={() => setEditing({ ...p })}><Pencil className="h-4 w-4" /></Button></TableCell>
                 <TableCell>{p.id}</TableCell><TableCell className="max-w-xs font-medium">{p.proposal}</TableCell><TableCell>{p.owner}</TableCell>
                 <TableCell><StatusBadge s={p.status} /></TableCell><TableCell>{p.decisionDate ?? "—"}</TableCell><TableCell>{p.submittedBy}</TableCell>
                 <TableCell>{p.dateSubmitted}</TableCell><TableCell className="max-w-xs text-muted-foreground">{p.rationale || "—"}</TableCell>
@@ -139,10 +159,18 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
       </div>
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Update proposal #{editing?.id}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit proposal #{editing?.id}</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-3">
-              <p className="text-sm">{editing.proposal}</p>
+              <div><Label>Proposal</Label><Textarea value={editing.proposal} maxLength={500} onChange={(e) => setEditing({ ...editing, proposal: e.target.value })} /></div>
+              <div><Label>Owner</Label>
+                <Select value={editing.owner} onValueChange={(v) => setEditing({ ...editing, owner: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{[...new Set([editing.owner, ...users.map((u) => u.name)])].map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Submitted by</Label><Input value={editing.submittedBy} maxLength={120} onChange={(e) => setEditing({ ...editing, submittedBy: e.target.value })} /></div>
+              <div><Label>Date submitted</Label><Input type="date" value={editing.dateSubmitted} onChange={(e) => setEditing({ ...editing, dateSubmitted: e.target.value })} /></div>
               <div><Label>Status</Label>
                 <Select value={editing.status} onValueChange={(v) => setEditing({ ...editing, status: v as Status, decisionDate: editing.decisionDate ?? (v === "Submitted" || v === "Under review" ? null : today()) })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
