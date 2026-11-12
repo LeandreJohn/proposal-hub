@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUpDown, LogOut, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api, session } from "@/lib/api";
 import { byOwner, daysToDecision, isOpen, summarize } from "@/lib/analytics";
 import { STATUSES, type AppUser, type Proposal, type Status } from "@/lib/types";
+import { getDashboardTabs, hasProposalPagination, OTHER_OWNER_VALUE, paginateItems, PROPOSAL_PAGE_SIZE, resolveProposalOwner, sortProposalRows, type ProposalSortKey } from "@/lib/proposal-management";
 
 export const Route = createFileRoute("/dashboard")({
   ssr: false,
@@ -36,14 +37,18 @@ function Dashboard() {
   const navigate = useNavigate();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [currentUser, setCurrentUser] = useState<ReturnType<typeof session.get>>(null);
   const reload = () => {
     api.listProposals().then(setProposals).catch((e) => toast.error(e.message));
     api.listUsers().then(setUsers).catch((e) => toast.error(e.message));
   };
   useEffect(() => {
-    if (!session.get()) { navigate({ to: "/login" }); return; }
+    const signedIn = session.get();
+    if (!signedIn) { navigate({ to: "/login" }); return; }
+    setCurrentUser(signedIn);
     reload();
   }, []);
+  const visibleTabs = getDashboardTabs(currentUser?.role);
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,12 +64,12 @@ function Dashboard() {
         <Tabs defaultValue="proposals">
           <TabsList>
             <TabsTrigger value="proposals">Proposals</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
+            {visibleTabs.includes("analytics") && <TabsTrigger value="analytics">Analytics</TabsTrigger>}
+            {visibleTabs.includes("users") && <TabsTrigger value="users">Users</TabsTrigger>}
           </TabsList>
-          <TabsContent value="proposals" className="mt-6"><ProposalsTab proposals={proposals} users={users} onChange={reload} /></TabsContent>
-          <TabsContent value="analytics" className="mt-6"><AnalyticsTab proposals={proposals} /></TabsContent>
-          <TabsContent value="users" className="mt-6"><UsersTab users={users} onChange={reload} /></TabsContent>
+          <TabsContent value="proposals" className="mt-6"><ProposalsTab proposals={proposals} users={users} currentUser={currentUser} onChange={reload} /></TabsContent>
+          {visibleTabs.includes("analytics") && <TabsContent value="analytics" className="mt-6"><AnalyticsTab proposals={proposals} /></TabsContent>}
+          {visibleTabs.includes("users") && <TabsContent value="users" className="mt-6"><UsersTab users={users} onChange={reload} /></TabsContent>}
         </Tabs>
       </main>
     </div>
@@ -78,22 +83,26 @@ function StatusBadge({ s }: { s: Status }) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; users: AppUser[]; onChange: () => void }) {
+function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: Proposal[]; users: AppUser[]; currentUser: ReturnType<typeof session.get>; onChange: () => void }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ proposal: "", owner: "", submittedBy: "", dateSubmitted: today() });
+  const [form, setForm] = useState({ proposal: "", owner: "", dateSubmitted: today() });
+  const [otherOwner, setOtherOwner] = useState("");
   const [editing, setEditing] = useState<Proposal | null>(null);
   const [fFrom, setFFrom] = useState(""); const [fTo, setFTo] = useState("");
   const [fOwner, setFOwner] = useState(ALL); const [fStatus, setFStatus] = useState(ALL);
+  const [sort, setSort] = useState<{ key: ProposalSortKey; dir: 1 | -1 }>({ key: "dateSubmitted", dir: -1 });
+  const [page, setPage] = useState(1);
   const owners = [...new Set(proposals.map((p) => p.owner))];
   const shown = proposals.filter((p) =>
     (!fFrom || p.dateSubmitted >= fFrom) && (!fTo || p.dateSubmitted <= fTo) &&
     (fOwner === ALL || p.owner === fOwner) && (fStatus === ALL || p.status === fStatus));
 
   const submit = async () => {
-    if (!form.proposal.trim() || !form.owner || !form.submittedBy.trim()) { toast.error("Please fill in all fields"); return; }
-    await api.createProposal({ ...form, status: "Submitted", decisionDate: null, rationale: "" });
+    const owner = resolveProposalOwner(form.owner, otherOwner);
+    if (!form.proposal.trim() || !owner || !currentUser?.name.trim()) { toast.error("Please fill in all fields"); return; }
+    await api.createProposal({ proposal: form.proposal, owner, submittedBy: currentUser.name, dateSubmitted: form.dateSubmitted, status: "Submitted", decisionDate: null, rationale: "" });
     toast.success("Proposal submitted");
-    setOpen(false); setForm({ proposal: "", owner: "", submittedBy: "", dateSubmitted: today() }); onChange();
+    setOpen(false); setForm({ proposal: "", owner: "", dateSubmitted: today() }); setOtherOwner(""); onChange();
   };
   const saveEdit = async () => {
     if (!editing) return;
@@ -101,6 +110,22 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
     await api.updateProposal(editing.id, editing);
     toast.success("Proposal updated"); setEditing(null); onChange();
   };
+  const sorted = useMemo(() => sortProposalRows(shown, sort), [shown, sort]);
+  const totalPages = Math.ceil(sorted.length / PROPOSAL_PAGE_SIZE);
+  const currentPage = Math.max(1, Math.min(page, totalPages || 1));
+  const pageRows = paginateItems(sorted, currentPage, PROPOSAL_PAGE_SIZE);
+  const sortHeading = (key: ProposalSortKey, label: string) => (
+    <TableHead aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 px-2"
+        aria-label={`Sort by ${label}${sort.key === key ? sort.dir === 1 ? ", ascending" : ", descending" : ""}`}
+        onClick={() => { setSort({ key, dir: sort.key === key ? (-sort.dir as 1 | -1) : 1 }); setPage(1); }}
+      >{label}<ArrowUpDown className="ml-1 h-3 w-3" /></Button>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-4">
@@ -115,10 +140,11 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
               <div><Label>Owner</Label>
                 <Select value={form.owner} onValueChange={(v) => setForm({ ...form, owner: v })}>
                   <SelectTrigger><SelectValue placeholder="Choose owner" /></SelectTrigger>
-                  <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}<SelectItem value={OTHER_OWNER_VALUE}>Other</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div><Label>Submitted by</Label><Input value={form.submittedBy} maxLength={120} onChange={(e) => setForm({ ...form, submittedBy: e.target.value })} /></div>
+              {form.owner === OTHER_OWNER_VALUE && <div><Label htmlFor="other-owner">Owner name</Label><Input id="other-owner" value={otherOwner} maxLength={120} onChange={(e) => setOtherOwner(e.target.value)} /></div>}
+              <div><Label>Submitted by</Label><Input value={currentUser?.name ?? ""} readOnly /></div>
               <div><Label>Date submitted</Label><Input type="date" value={form.dateSubmitted} onChange={(e) => setForm({ ...form, dateSubmitted: e.target.value })} /></div>
               <Button className="w-full" onClick={submit}>Submit</Button>
             </div>
@@ -126,26 +152,26 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
         </Dialog>
       </div>
       <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <div><Label>Submitted from</Label><Input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} /></div>
-        <div><Label>Submitted to</Label><Input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} /></div>
+        <div><Label>Submitted from</Label><Input type="date" value={fFrom} onChange={(e) => { setFFrom(e.target.value); setPage(1); }} /></div>
+        <div><Label>Submitted to</Label><Input type="date" value={fTo} onChange={(e) => { setFTo(e.target.value); setPage(1); }} /></div>
         <div className="w-48"><Label>Owner</Label>
-          <Select value={fOwner} onValueChange={setFOwner}><SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={fOwner} onValueChange={(v) => { setFOwner(v); setPage(1); }}><SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value={ALL}>All</SelectItem>{owners.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
         <div className="w-48"><Label>Status</Label>
-          <Select value={fStatus} onValueChange={setFStatus}><SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={fStatus} onValueChange={(v) => { setFStatus(v); setPage(1); }}><SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value={ALL}>All</SelectItem>{STATUSES.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
-        <Button variant="outline" onClick={() => { setFFrom(""); setFTo(""); setFOwner(ALL); setFStatus(ALL); }}>Clear</Button>
+        <Button variant="outline" onClick={() => { setFFrom(""); setFTo(""); setFOwner(ALL); setFStatus(ALL); setPage(1); }}>Clear</Button>
       </div>
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader><TableRow>
-            <TableHead className="w-10" /><TableHead>#</TableHead><TableHead>Proposal</TableHead><TableHead>Owner</TableHead><TableHead>Status</TableHead>
-            <TableHead>Decision date</TableHead><TableHead>Submitted by</TableHead><TableHead>Date submitted</TableHead>
-            <TableHead>Decision & rationale</TableHead><TableHead>Days</TableHead>
+            <TableHead className="w-10" />{sortHeading("id", "#")}{sortHeading("proposal", "Proposal")}{sortHeading("owner", "Owner")}{sortHeading("status", "Status")}
+            {sortHeading("decisionDate", "Decision date")}{sortHeading("submittedBy", "Submitted by")}{sortHeading("dateSubmitted", "Date submitted")}
+            <TableHead>Decision &amp; rationale</TableHead>{sortHeading("days", "Days")}
           </TableRow></TableHeader>
           <TableBody>
-            {shown.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
-            {shown.map((p) => (
+            {pageRows.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
+            {pageRows.map((p) => (
               <TableRow key={p.id}>
                 <TableCell><Button variant="ghost" size="icon" aria-label={`Edit proposal ${p.id}`} onClick={() => setEditing({ ...p })}><Pencil className="h-4 w-4" /></Button></TableCell>
                 <TableCell>{p.id}</TableCell><TableCell className="max-w-xs font-medium">{p.proposal}</TableCell><TableCell>{p.owner}</TableCell>
@@ -157,6 +183,13 @@ function ProposalsTab({ proposals, users, onChange }: { proposals: Proposal[]; u
           </TableBody>
         </Table>
       </div>
+      {hasProposalPagination(sorted.length) && (
+        <nav aria-label="Proposal pages" className="flex items-center justify-end gap-3">
+          <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+          <Button variant="outline" size="icon" aria-label="Previous page" title="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" aria-label="Next page" title="Next page" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        </nav>
+      )}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit proposal #{editing?.id}</DialogTitle></DialogHeader>

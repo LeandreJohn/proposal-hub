@@ -66,7 +66,22 @@ export const api = {
 };
 
 export const session = {
-  get: () => (typeof window === "undefined" ? null : localStorage.getItem("hb_session")),
-  signIn: () => localStorage.setItem("hb_session", JSON.stringify({ name: "Demo User", email: "demo@headbacker.com" })),
+  get: (): { name: string; email: string; role: AppUser["role"] } | null => {
+    if (typeof window === "undefined") return null;
+    const raw = localStorage.getItem("hb_session");
+    if (!raw) return null;
+    try {
+      const value = JSON.parse(raw) as { name?: unknown; email?: unknown; role?: unknown };
+      if (typeof value.name !== "string" || typeof value.email !== "string") return null;
+      return {
+        name: value.name,
+        email: value.email,
+        role: value.role === "Member" ? "Member" : "Admin",
+      };
+    } catch {
+      return null;
+    }
+  },
+  signIn: () => localStorage.setItem("hb_session", JSON.stringify({ name: "Demo User", email: "demo@headbacker.com", role: "Admin" })),
   signOut: () => localStorage.removeItem("hb_session"),
 };
