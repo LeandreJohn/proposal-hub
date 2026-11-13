@@ -6,6 +6,7 @@ export interface Proposal {
   id: number;
   proposal: string;
   owner: string;
+  accountableLeader?: string;
   status: Status;
   decisionDate: string | null; // YYYY-MM-DD
   submittedBy: string;

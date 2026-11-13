@@ -6,6 +6,7 @@ const proposal = (id: number, dateSubmitted: string): Proposal => ({
   id,
   proposal: `Proposal ${id}`,
   owner: "Jane",
+  accountableLeader: "",
   status: "Submitted",
   decisionDate: null,
   submittedBy: "Demo User",
@@ -24,6 +25,11 @@ describe("proposal management helpers", () => {
     expect(resolveProposalOwner("Jane", "Alex Smith")).toBe("Jane");
   });
 
+  it("allows an empty owner value in the proposal payload", () => {
+    expect(resolveProposalOwner("", "")).toBe("");
+    expect(resolveProposalOwner(OTHER_OWNER_VALUE, "   ")).toBe("");
+  });
+
   it("starts pagination only above 20 proposals", () => {
     expect(hasProposalPagination(20)).toBe(false);
     expect(hasProposalPagination(21)).toBe(true);
@@ -38,5 +44,13 @@ describe("proposal management helpers", () => {
   it("sorts proposal rows by selected table field and direction", () => {
     const rows = [proposal(1, "2026-11-02"), proposal(2, "2026-11-01")];
     expect(sortProposalRows(rows, { key: "dateSubmitted", dir: 1 }).map((row) => row.id)).toEqual([2, 1]);
+  });
+
+  it("sorts proposals by Accountable Leader", () => {
+    const rows = [
+      { ...proposal(1, "2026-11-01"), accountableLeader: "Zoe" },
+      { ...proposal(2, "2026-11-01"), accountableLeader: "Alex" },
+    ];
+    expect(sortProposalRows(rows, { key: "accountableLeader", dir: 1 }).map((row) => row.id)).toEqual([2, 1]);
   });
 });

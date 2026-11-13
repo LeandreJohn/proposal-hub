@@ -105,12 +105,12 @@ export const session = {
       const value = JSON.parse(raw) as Partial<SessionUser>;
       if (typeof value.name !== "string" || typeof value.email !== "string") return null;
       return {
-        id: typeof value.id === "string" ? value.id : undefined,
+        ...(typeof value.id === "string" ? { id: value.id } : {}),
         name: value.name,
         email: value.email,
         // Anything that isn't exactly "Admin" is treated as Member.
         role: value.role === "Admin" ? "Admin" : "Member",
-        avatarUrl: typeof value.avatarUrl === "string" ? value.avatarUrl : undefined,
+        ...(typeof value.avatarUrl === "string" ? { avatarUrl: value.avatarUrl } : {}),
       };
     } catch {
       return null;
