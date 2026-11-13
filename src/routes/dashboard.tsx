@@ -85,7 +85,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: Proposal[]; users: AppUser[]; currentUser: ReturnType<typeof session.get>; onChange: () => void }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ proposal: "", owner: "", dateSubmitted: today() });
+  const [form, setForm] = useState({ proposal: "", owner: "", accountableLeader: "", dateSubmitted: today() });
   const [otherOwner, setOtherOwner] = useState("");
   const [editing, setEditing] = useState<Proposal | null>(null);
   const [fFrom, setFFrom] = useState(""); const [fTo, setFTo] = useState("");
@@ -99,10 +99,10 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
 
   const submit = async () => {
     const owner = resolveProposalOwner(form.owner, otherOwner);
-    if (!form.proposal.trim() || !owner || !currentUser?.name.trim()) { toast.error("Please fill in all fields"); return; }
-    await api.createProposal({ proposal: form.proposal, owner, submittedBy: currentUser.name, dateSubmitted: form.dateSubmitted, status: "Submitted", decisionDate: null, rationale: "" });
+    if (!form.proposal.trim() || !currentUser?.name.trim()) { toast.error("Proposal is required"); return; }
+    await api.createProposal({ proposal: form.proposal, owner, accountableLeader: form.accountableLeader.trim(), submittedBy: currentUser.name, dateSubmitted: form.dateSubmitted, status: "Submitted", decisionDate: null, rationale: "" });
     toast.success("Proposal submitted");
-    setOpen(false); setForm({ proposal: "", owner: "", dateSubmitted: today() }); setOtherOwner(""); onChange();
+    setOpen(false); setForm({ proposal: "", owner: "", accountableLeader: "", dateSubmitted: today() }); setOtherOwner(""); onChange();
   };
   const saveEdit = async () => {
     if (!editing) return;
@@ -139,11 +139,12 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
               <div><Label>Proposal</Label><Textarea value={form.proposal} maxLength={500} onChange={(e) => setForm({ ...form, proposal: e.target.value })} /></div>
               <div><Label>Owner</Label>
                 <Select value={form.owner} onValueChange={(v) => setForm({ ...form, owner: v })}>
-                  <SelectTrigger><SelectValue placeholder="Choose owner" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="No owner" /></SelectTrigger>
                   <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}<SelectItem value={OTHER_OWNER_VALUE}>Other</SelectItem></SelectContent>
                 </Select>
               </div>
               {form.owner === OTHER_OWNER_VALUE && <div><Label htmlFor="other-owner">Owner name</Label><Input id="other-owner" value={otherOwner} maxLength={120} onChange={(e) => setOtherOwner(e.target.value)} /></div>}
+              <div><Label htmlFor="accountable-leader">Accountable Leader</Label><Input id="accountable-leader" value={form.accountableLeader} maxLength={120} onChange={(e) => setForm({ ...form, accountableLeader: e.target.value })} /></div>
               <div><Label>Submitted by</Label><Input value={currentUser?.name ?? ""} readOnly /></div>
               <div><Label>Date submitted</Label><Input type="date" value={form.dateSubmitted} onChange={(e) => setForm({ ...form, dateSubmitted: e.target.value })} /></div>
               <Button className="w-full" onClick={submit}>Submit</Button>
@@ -165,16 +166,16 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader><TableRow>
-            <TableHead className="w-10" />{sortHeading("id", "#")}{sortHeading("proposal", "Proposal")}{sortHeading("owner", "Owner")}{sortHeading("status", "Status")}
+            <TableHead className="w-10" />{sortHeading("id", "#")}{sortHeading("proposal", "Proposal")}{sortHeading("owner", "Owner")}{sortHeading("accountableLeader", "Accountable Leader")}{sortHeading("status", "Status")}
             {sortHeading("decisionDate", "Decision date")}{sortHeading("submittedBy", "Submitted by")}{sortHeading("dateSubmitted", "Date submitted")}
             <TableHead>Decision &amp; rationale</TableHead>{sortHeading("days", "Days")}
           </TableRow></TableHeader>
           <TableBody>
-            {pageRows.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
+            {pageRows.length === 0 && <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
             {pageRows.map((p) => (
               <TableRow key={p.id}>
                 <TableCell><Button variant="ghost" size="icon" aria-label={`Edit proposal ${p.id}`} onClick={() => setEditing({ ...p })}><Pencil className="h-4 w-4" /></Button></TableCell>
-                <TableCell>{p.id}</TableCell><TableCell className="max-w-xs font-medium">{p.proposal}</TableCell><TableCell>{p.owner}</TableCell>
+                <TableCell>{p.id}</TableCell><TableCell className="max-w-xs font-medium">{p.proposal}</TableCell><TableCell>{p.owner}</TableCell><TableCell>{p.accountableLeader ?? ""}</TableCell>
                 <TableCell><StatusBadge s={p.status} /></TableCell><TableCell>{p.decisionDate ?? "—"}</TableCell><TableCell>{p.submittedBy}</TableCell>
                 <TableCell>{p.dateSubmitted}</TableCell><TableCell className="max-w-xs text-muted-foreground">{p.rationale || "—"}</TableCell>
                 <TableCell>{daysToDecision(p) ?? "—"}</TableCell>
@@ -202,6 +203,7 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
                   <SelectContent>{[...new Set([editing.owner, ...users.map((u) => u.name)])].map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div><Label htmlFor="edit-accountable-leader">Accountable Leader</Label><Input id="edit-accountable-leader" value={editing.accountableLeader ?? ""} maxLength={120} onChange={(e) => setEditing({ ...editing, accountableLeader: e.target.value })} /></div>
               <div><Label>Submitted by</Label><Input value={editing.submittedBy} maxLength={120} onChange={(e) => setEditing({ ...editing, submittedBy: e.target.value })} /></div>
               <div><Label>Date submitted</Label><Input type="date" value={editing.dateSubmitted} onChange={(e) => setEditing({ ...editing, dateSubmitted: e.target.value })} /></div>
               <div><Label>Status</Label>
@@ -221,7 +223,7 @@ function ProposalsTab({ proposals, users, currentUser, onChange }: { proposals: 
   );
 }
 
-type SortKey = "id" | "proposal" | "owner" | "status" | "submittedBy" | "dateSubmitted" | "decisionDate" | "days";
+type SortKey = "id" | "proposal" | "owner" | "accountableLeader" | "status" | "submittedBy" | "dateSubmitted" | "decisionDate" | "days";
 const ALL = "__all";
 
 function AnalyticsTab({ proposals }: { proposals: Proposal[] }) {

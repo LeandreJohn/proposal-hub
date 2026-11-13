@@ -4,7 +4,7 @@ import type { AppUser, Proposal } from "./types";
 export const OTHER_OWNER_VALUE = "__other_owner__";
 export const PROPOSAL_PAGE_SIZE = 20;
 
-export type ProposalSortKey = "id" | "proposal" | "owner" | "status" | "submittedBy" | "dateSubmitted" | "decisionDate" | "days";
+export type ProposalSortKey = "id" | "proposal" | "owner" | "accountableLeader" | "status" | "submittedBy" | "dateSubmitted" | "decisionDate" | "days";
 export type DashboardTab = "proposals" | "analytics" | "users";
 
 export function getDashboardTabs(role: AppUser["role"] | null | undefined): DashboardTab[] {
