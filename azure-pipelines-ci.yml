@@ -1,0 +1,106 @@
+# HB Proposal Hub — CI pipeline
+# TanStack Start app built in SPA mode (see vite.config.ts): the build
+# prerenders a static shell to .output/public/index.html, so the whole site is
+# plain static files. CI does the full build and publishes .output/public;
+# CD deploys it to Azure Static Web Apps with skip_app_build: true.
+#
+# Pipeline variables (Pipelines > Edit > Variables, or a linked variable group):
+#   VITE_API_BASE_URL_MAIN  FastAPI base URL baked into main builds
+#   VITE_API_BASE_URL_DEV   FastAPI base URL baked into dev-nem builds / PRs
+#   VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN,
+#   VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID
+#                           Firebase web config baked into the client bundle
+# If an API URL is empty, the app falls back to its local demo data (src/lib/api.ts).
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+steps:
+  - checkout: self
+    clean: true
+
+  - task: NodeTool@0
+    displayName: "Install Node.js"
+    inputs:
+      versionSource: "spec"
+      versionSpec: "22.x"
+
+  - script: npm install --legacy-peer-deps
+    displayName: "Install dependencies"
+
+  - script: npm test
+    displayName: "Run tests (Vitest)"
+
+  # Vite inlines VITE_-prefixed vars into the client bundle at build time.
+  - script: |
+      target="$(Build.SourceBranchName)"
+      if [ "$(Build.Reason)" = "PullRequest" ]; then
+        target="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
+      fi
+      if [ "$target" = "main" ]; then
+        apiUrl="https://cb-request-tracker-staging-be-abedgtapdtecb5em.westus3-01.azurewebsites.net"
+      else
+        apiUrl="https://cb-request-tracker-staging-be-abedgtapdtecb5em.westus3-01.azurewebsites.net"
+      fi
+      # An undefined pipeline variable is passed through as the literal "$(NAME)".
+      case "$apiUrl" in '$('*) apiUrl="" ;; esac
+      if [ -n "$apiUrl" ]; then
+        echo "VITE_API_BASE_URL=${apiUrl}" > .env.production
+        echo "Build config for '$target': VITE_API_BASE_URL from pipeline variable"
+      else
+        echo "No pipeline variable for '$target'; using committed .env.production"
+      fi
+      cat .env.production
+    displayName: "Write build-time environment"
+    env:
+      # Explicit mapping is required for secret variables.
+      API_URL_MAIN: $(VITE_API_BASE_URL_MAIN)
+      API_URL_DEV: $(VITE_API_BASE_URL_DEV)
+
+  # Appends (>>) so it does not wipe the file written by the step above.
+  # Fails the build if the Firebase API key is missing, instead of shipping a broken site.
+  - script: |
+      case "$FB_API_KEY" in
+        ''|'$('*) echo "##vso[task.logissue type=error]VITE_FIREBASE_API_KEY pipeline variable is not set"; exit 1 ;;
+      esac
+      {
+        echo "VITE_FIREBASE_API_KEY=${FB_API_KEY}"
+        echo "VITE_FIREBASE_AUTH_DOMAIN=${FB_AUTH_DOMAIN}"
+        echo "VITE_FIREBASE_PROJECT_ID=${FB_PROJECT_ID}"
+        echo "VITE_FIREBASE_APP_ID=${FB_APP_ID}"
+      } >> .env.production
+      echo "Firebase build-time environment added"
+    displayName: "Add Firebase build-time environment"
+    env:
+      FB_API_KEY: $(VITE_FIREBASE_API_KEY)
+      FB_AUTH_DOMAIN: $(VITE_FIREBASE_AUTH_DOMAIN)
+      FB_PROJECT_ID: $(VITE_FIREBASE_PROJECT_ID)
+      FB_APP_ID: $(VITE_FIREBASE_APP_ID)
+
+  - script: npm run build -- --mode production
+    displayName: "Build (Vite, SPA mode)"
+
+  - script: |
+      test -s .output/public/index.html || { echo "##vso[task.logissue type=error].output/public/index.html missing or empty"; exit 1; }
+      test -f .output/public/staticwebapp.config.json || { echo "##vso[task.logissue type=error]staticwebapp.config.json missing"; exit 1; }
+      find .output/public -maxdepth 2
+    displayName: "Verify static output"
+
+  # Only branch builds produce a deployable artifact; PRs just validate.
+  - task: PublishPipelineArtifact@1
+    displayName: "Publish artifact"
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    inputs:
+      targetPath: ".output/public"
+      artifact: "hb-proposal-hub-$(Build.SourceBranchName)"
+      publishLocation: "pipeline"
