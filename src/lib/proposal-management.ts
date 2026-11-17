@@ -1,7 +1,11 @@
 import { daysToDecision } from "./analytics";
 import type { AppUser, Proposal } from "./types";
 
-export const OTHER_OWNER_VALUE = "__other_owner__";
+export const SUPERVISOR_OPTIONS = [
+  "Katrin Marie Nebrada",
+  "Ewaldo Castor Jr. Rosal",
+  "Jessie Ocampo",
+] as const;
 export const PROPOSAL_PAGE_SIZE = 20;
 
 export type ProposalSortKey = "id" | "proposal" | "owner" | "accountableLeader" | "status" | "submittedBy" | "dateSubmitted" | "decisionDate" | "days";
@@ -11,8 +15,20 @@ export function getDashboardTabs(role: AppUser["role"] | null | undefined): Dash
   return role === "Admin" ? ["proposals", "analytics", "users"] : ["proposals"];
 }
 
-export function resolveProposalOwner(selectedOwner: string, manuallyEnteredOwner: string): string {
-  return selectedOwner === OTHER_OWNER_VALUE ? manuallyEnteredOwner.trim() : selectedOwner;
+export function resolveProposalOwner(selectedSupervisor: string): string {
+  return SUPERVISOR_OPTIONS.find((supervisor) => supervisor === selectedSupervisor) ?? "";
+}
+
+export function preserveAccountableLeader(
+  original: Proposal,
+  edited: Proposal,
+  role: AppUser["role"] | null | undefined,
+): Proposal {
+  if (role === "Admin") return edited;
+  const { accountableLeader: _editedAccountableLeader, ...editedFields } = edited;
+  return original.accountableLeader === undefined
+    ? editedFields
+    : { ...editedFields, accountableLeader: original.accountableLeader };
 }
 
 export function hasProposalPagination(itemCount: number): boolean {

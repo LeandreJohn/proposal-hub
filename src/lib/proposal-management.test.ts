@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDashboardTabs, hasProposalPagination, OTHER_OWNER_VALUE, paginateItems, PROPOSAL_PAGE_SIZE, resolveProposalOwner, sortProposalRows } from "./proposal-management";
+import { getDashboardTabs, hasProposalPagination, paginateItems, preserveAccountableLeader, PROPOSAL_PAGE_SIZE, resolveProposalOwner, sortProposalRows, SUPERVISOR_OPTIONS } from "./proposal-management";
 import type { Proposal } from "./types";
 
 const proposal = (id: number, dateSubmitted: string): Proposal => ({
@@ -20,14 +20,33 @@ describe("proposal management helpers", () => {
     expect(getDashboardTabs("Member")).toEqual(["proposals"]);
   });
 
-  it("sends the manually entered owner rather than the Other dropdown value", () => {
-    expect(resolveProposalOwner(OTHER_OWNER_VALUE, "  Alex Smith  ")).toBe("Alex Smith");
-    expect(resolveProposalOwner("Jane", "Alex Smith")).toBe("Jane");
+  it("offers exactly the three supervisors and sends the selected name as owner", () => {
+    expect(SUPERVISOR_OPTIONS).toEqual([
+      "Katrin Marie Nebrada",
+      "Ewaldo Castor Jr. Rosal",
+      "Jessie Ocampo",
+    ]);
+    expect(SUPERVISOR_OPTIONS.map(resolveProposalOwner)).toEqual([
+      "Katrin Marie Nebrada",
+      "Ewaldo Castor Jr. Rosal",
+      "Jessie Ocampo",
+    ]);
   });
 
-  it("allows an empty owner value in the proposal payload", () => {
-    expect(resolveProposalOwner("", "")).toBe("");
-    expect(resolveProposalOwner(OTHER_OWNER_VALUE, "   ")).toBe("");
+  it("allows an empty owner and rejects values outside the supervisor list", () => {
+    expect(resolveProposalOwner("")).toBe("");
+    expect(resolveProposalOwner("Other")).toBe("");
+  });
+
+  it("allows only Admins to change Accountable Leader while editing", () => {
+    const original = { ...proposal(1, "2026-11-01"), accountableLeader: "Original leader" };
+    const edited = { ...original, accountableLeader: "Changed leader", proposal: "Updated proposal" };
+
+    expect(preserveAccountableLeader(original, edited, "Admin").accountableLeader).toBe("Changed leader");
+    expect(preserveAccountableLeader(original, edited, "Member")).toMatchObject({
+      accountableLeader: "Original leader",
+      proposal: "Updated proposal",
+    });
   });
 
   it("starts pagination only above 20 proposals", () => {
