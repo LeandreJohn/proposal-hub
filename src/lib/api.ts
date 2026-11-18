@@ -1,5 +1,5 @@
 import type { AppUser, Proposal } from "./types";
-import { auth } from "./firebase";
+import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import { access } from "node:fs";
 
 // Set VITE_API_BASE_URL to your FastAPI server (e.g. http://localhost:8000) to use it instead of local demo data.
@@ -177,6 +177,6 @@ export const session = {
       }).catch(() => {});
     }
 
-    auth.signOut().catch(() => {});
+    if (isFirebaseConfigured()) getFirebaseAuth().signOut().catch(() => {});
   },
 };

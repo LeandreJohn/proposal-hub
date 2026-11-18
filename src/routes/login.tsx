@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { signInWithPopup } from "firebase/auth";
 import { Logo } from "@/components/Logo";
 import { session } from "@/lib/api";
-import { auth, googleProvider } from "@/lib/firebase";
+import { getFirebaseAuth, getGoogleProvider, isFirebaseConfigured } from "@/lib/firebase";
 
 const ALLOWED_DOMAIN = "@cyberbacker.com";
 
@@ -29,11 +29,16 @@ function Login() {
 
   const handleGoogleLogin = async () => {
     setError("");
+    if (!isFirebaseConfigured()) {
+      setError("Google sign-in is not configured yet. Please contact your administrator.");
+      return;
+    }
     setSigningIn(true);
     try {
 
       // Must be the first await in the click handler, or the browser may block the popup.
-      const result = await signInWithPopup(auth, googleProvider);
+      const auth = getFirebaseAuth();
+      const result = await signInWithPopup(auth, getGoogleProvider());
 
       const email = result.user?.email;
 

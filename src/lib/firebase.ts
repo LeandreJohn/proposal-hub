@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
@@ -10,8 +10,21 @@ const firebaseConfig = {
   appId: import.meta.env['VITE_FIREBASE_APP_ID'],
 };
 
-const app = initializeApp(firebaseConfig);
+export function isFirebaseConfigured(): boolean {
+  return [firebaseConfig.apiKey, firebaseConfig.authDomain, firebaseConfig.projectId, firebaseConfig.appId]
+    .every((value) => typeof value === "string" && value.trim().length > 0);
+}
 
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ hd: "cyberbacker.com", prompt: "select_account" });
+export function getFirebaseAuth() {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Google sign-in is not configured. Add the required Firebase settings to enable it.");
+  }
+  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  return getAuth(app);
+}
+
+export function getGoogleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ hd: "cyberbacker.com", prompt: "select_account" });
+  return provider;
+}
