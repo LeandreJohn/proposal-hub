@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, session } from "@/lib/api";
@@ -87,6 +87,7 @@ function ProposalsTab({ proposals, currentUser, onChange }: { proposals: Proposa
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ proposal: "", owner: "", dateSubmitted: today() });
   const [editing, setEditing] = useState<Proposal | null>(null);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [fFrom, setFFrom] = useState(""); const [fTo, setFTo] = useState("");
   const [fOwner, setFOwner] = useState(ALL); const [fStatus, setFStatus] = useState(ALL);
   const [sort, setSort] = useState<{ key: ProposalSortKey; dir: 1 | -1 }>({ key: "dateSubmitted", dir: -1 });
@@ -163,7 +164,7 @@ function ProposalsTab({ proposals, currentUser, onChange }: { proposals: Proposa
         <Button variant="outline" onClick={() => { setFFrom(""); setFTo(""); setFOwner(ALL); setFStatus(ALL); setPage(1); }}>Clear</Button>
       </div>
       <div className="rounded-lg border bg-card">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader><TableRow>
             {sortHeading("id", "Proposal #")}{sortHeading("submittedBy", "Submitted By")}{sortHeading("proposal", "Proposal")}{sortHeading("dateSubmitted", "Date Submitted")}
             {sortHeading("owner", "Supervisor Name")}{sortHeading("accountableLeader", "Accountable Leader")}{sortHeading("status", "Status")}
@@ -172,11 +173,24 @@ function ProposalsTab({ proposals, currentUser, onChange }: { proposals: Proposa
           <TableBody>
             {pageRows.length === 0 && <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">No proposals match these filters.</TableCell></TableRow>}
             {pageRows.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell><div className="flex items-center gap-1"><span>{p.id}</span><Button variant="ghost" size="icon" aria-label={`Edit proposal ${p.id}`} onClick={() => setEditing({ ...p })}><Pencil className="h-4 w-4" /></Button></div></TableCell>
-                <TableCell>{p.submittedBy}</TableCell><TableCell className="max-w-xs font-medium">{p.proposal}</TableCell><TableCell>{p.dateSubmitted}</TableCell>
+              <TableRow
+                key={p.id}
+                tabIndex={0}
+                aria-label={`View details for proposal ${p.id}`}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setSelectedProposal(p)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedProposal(p);
+                  }
+                }}
+              >
+                <TableCell><div className="flex items-center gap-1"><span>{p.id}</span><Button variant="ghost" size="icon" aria-label={`Edit proposal ${p.id}`} onClick={(event) => { event.stopPropagation(); setEditing({ ...p }); }}><Pencil className="h-4 w-4" /></Button></div></TableCell>
+                <TableCell>{p.submittedBy}</TableCell><TableCell className="w-64 max-w-64 font-medium"><div className="truncate whitespace-nowrap" title={p.proposal}>{p.proposal}</div></TableCell><TableCell>{p.dateSubmitted}</TableCell>
                 <TableCell>{p.owner}</TableCell><TableCell>{p.accountableLeader ?? ""}</TableCell><TableCell><StatusBadge s={p.status} /></TableCell>
-                <TableCell className="max-w-xs text-muted-foreground">{p.rationale || "—"}</TableCell><TableCell>{p.decisionDate ?? "—"}</TableCell>
+                <TableCell className="w-64 max-w-64 text-muted-foreground"><div className="truncate whitespace-nowrap" title={p.rationale || "—"}>{p.rationale || "—"}</div></TableCell><TableCell>{p.decisionDate ?? "—"}</TableCell>
                 <TableCell>{daysToDecision(p) ?? "—"}</TableCell>
               </TableRow>
             ))}
@@ -190,6 +204,35 @@ function ProposalsTab({ proposals, currentUser, onChange }: { proposals: Proposa
           <Button variant="outline" size="icon" aria-label="Next page" title="Next page" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
         </nav>
       )}
+      <Dialog open={!!selectedProposal} onOpenChange={(isOpen) => !isOpen && setSelectedProposal(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          {selectedProposal && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Proposal #{selectedProposal.id}</DialogTitle>
+                <DialogDescription>Complete proposal and decision details</DialogDescription>
+              </DialogHeader>
+              <dl className="grid grid-cols-1 gap-4 border-b pb-4 sm:grid-cols-3">
+                <div><dt className="text-sm text-muted-foreground">Submitted By</dt><dd className="break-words">{selectedProposal.submittedBy}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Date Submitted</dt><dd>{selectedProposal.dateSubmitted}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Supervisor Name</dt><dd className="break-words">{selectedProposal.owner || "—"}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Accountable Leader</dt><dd className="break-words">{selectedProposal.accountableLeader || "—"}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Status</dt><dd><StatusBadge s={selectedProposal.status} /></dd></div>
+                <div><dt className="text-sm text-muted-foreground">Decision Date</dt><dd>{selectedProposal.decisionDate ?? "—"}</dd></div>
+                <div><dt className="text-sm text-muted-foreground">Days (#)</dt><dd>{daysToDecision(selectedProposal) ?? "—"}</dd></div>
+              </dl>
+              <section className="space-y-2">
+                <h3 className="font-semibold">Proposal</h3>
+                <p className="whitespace-pre-wrap break-words text-sm">{selectedProposal.proposal}</p>
+              </section>
+              <section className="space-y-2 border-t pt-4">
+                <h3 className="font-semibold">Decision &amp; Rationale</h3>
+                <p className="whitespace-pre-wrap break-words text-sm">{selectedProposal.rationale || "No decision or rationale recorded."}</p>
+              </section>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit proposal #{editing?.id}</DialogTitle></DialogHeader>
